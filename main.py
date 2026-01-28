@@ -1,40 +1,106 @@
-from fastapi import FastAPI
+"""
+Punto de entrada principal de la API FastAPI.
+"""
+
 from typing import List
-from userModel import Genero, Rol, Usuario
+from uuid import UUID, uuid4
+
+from fastapi import FastAPI, HTTPException, status
+
+from user_model import Genero, Role, Usuario, UsuarioCreate, UsuarioUpdate
+
 
 app = FastAPI()
 
+
 db: List[Usuario] = [
     Usuario(
+        id=uuid4(),
         nombre="Carlos",
-        apellidos="Cabrera Fosado",
-        genero=Genero.masculino,
-        roles=[Rol.admin],
+        apellidos="Fosado",
+        genero=Genero.MASCULINO,
+        roles=[Role.ADMIN],
     ),
     Usuario(
+        id=uuid4(),
         nombre="Daniela",
-        apellidos="Leon Jimenez",
-        genero=Genero.femenino,
-        roles=[Rol.user],
-    ),
-    Usuario(
-        nombre="Tania",
-        apellidos="Marquez Cabrera",
-        genero=Genero.femenino,
-        roles=[Rol.admin],
-    ),
-    Usuario(
-        nombre="Abril",
-        apellidos="Guzman Pazos",
-        genero=Genero.femenino,
-        roles=[Rol.invitado],
+        apellidos="León Jimenez",
+        genero=Genero.FEMENINO,
+        roles=[Role.USER],
     ),
 ]
 
+
 @app.get("/")
 async def root():
-    return {"Saludo": "Hola 8b IDGS hijos del tio randi"}
+    """Endpoint raíz."""
+    return {"saludo": "Hola 8B IDGS hijos de Rando"}
 
-@app.get("/api/v1/users")
-async def get_user():
+
+# -------------------------
+# GET
+# -------------------------
+
+@app.get("/api/v1/users", response_model=List[Usuario])
+async def get_users():
+    """Obtiene todos los usuarios."""
     return db
+
+
+@app.get("/api/v1/users/{user_id}", response_model=Usuario)
+async def get_user(user_id: UUID):
+    """Obtiene un usuario por ID."""
+    for user in db:
+        if user.id == user_id:
+            return user
+    raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+
+# -------------------------
+# POST
+# -------------------------
+
+@app.post(
+    "/api/v1/users",
+    response_model=Usuario,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_user(user: UsuarioCreate):
+    """Crea un nuevo usuario."""
+    new_user = Usuario(id=uuid4(), **user.model_dump())
+    db.append(new_user)
+    return new_user
+
+
+# -------------------------
+# PUT
+# -------------------------
+
+@app.put("/api/v1/users/{user_id}", response_model=Usuario)
+async def update_user(user_id: UUID, user_update: UsuarioUpdate):
+    """Actualiza un usuario existente."""
+    for index, user in enumerate(db):
+        if user.id == user_id:
+            updated_user = user.copy(update=user_update.model_dump())
+            db[index] = updated_user
+            return updated_user
+
+    raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+
+# -------------------------
+# DELETE
+# -------------------------
+
+@app.delete(
+    "/api/v1/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_user(user_id: UUID):
+    """Elimina un usuario."""
+    for index, user in enumerate(db):
+        if user.id == user_id:
+            db.pop(index)
+            return None
+
+    raise HTTPException(status_code=404, detail="Usuario no encontrado")
